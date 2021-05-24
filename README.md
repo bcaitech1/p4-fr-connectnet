@@ -26,7 +26,7 @@
 * 서준배 [![Github Badge](https://img.shields.io/badge/-Github-161c22?style=flat&logo=github&link=https://github.com/philgineer/)](https://github.com/deokisys)
 [![Blog Badge](http://img.shields.io/badge/Blog-51a9fe?style=flat&link=https://philgineer.com/)](https://deokisys.github.io/)
 * 윤준호 [![Github Badge](https://img.shields.io/badge/-Github-161c22?style=flat&logo=github&link=https://github.com/philgineer/)](https://github.com/philgineer) [![Blog Badge](http://img.shields.io/badge/Blog-51a9fe?style=flat&link=https://philgineer.com/)](https://philgineer.com/)
-* 임기홍 [![Github Badge](https://img.shields.io/badge/-Github-161c22?style=flat&logo=github&link=https://github.com/philgineer/)](https://github.com/abc)
+* 임기홍 [![Github Badge](https://img.shields.io/badge/-Github-161c22?style=flat&logo=github&link=https://github.com/philgineer/)](https://github.com/GihongYim)
 * 조호성 [![Github Badge](https://img.shields.io/badge/-Github-161c22?style=flat&logo=github&link=https://github.com/philgineer/)](https://github.com/abc)
 
 #### Ground rule <a name = 'rule'></a>
