@@ -1,8 +1,8 @@
-### 부스트캠프 AI Tech - Team Project
+### 부스트캠프 AI Tech - Team Project 수식 인식기
 
-|Title|Task|Date|Team|
-|---|---|---|---|
-|수식 인식기| 수식 이미지를 latex 포맷의 텍스트로 변환하는 문제|2021.05.24 ~ 2021.06.15|5조 ConnectNet|
+|Task|Date|Team|
+|---|---|---|
+|수식 이미지를 latex 포맷의 텍스트로 변환하는 문제|2021.05.24 ~ 2021.06.15|5조 ConnectNet|
 
 > `P stage 4 대회 진행 과정과 결과를 기록한 Team Git repo 입니다. 대회 특성상 수정 혹은 삭제된 부분이 존재 합니다`
 
