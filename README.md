@@ -14,7 +14,7 @@
 
 [Team 소개](#Team)<br>
 [Gound Rule](#rule)<br>
-
+[실험노트](https://docs.google.com/spreadsheets/d/1v_ZMKii5nt6VgrtCVA-bue42jWa5wpcJWnHMoFL9OUE)
 
 
 ---
@@ -40,7 +40,7 @@
    * `Wandb` 사용
 
 3. 회의 기록 작성
-
+   * [wiki](https://github.com/bcaitech1/p4-fr-connectnet/wiki)
 4. 자료 공유 및 연락 - Slack
 
 5. Code review
