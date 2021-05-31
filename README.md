@@ -15,9 +15,11 @@
 [Team 소개](#Team)<br>
 [Gound Rule](#rule)<br>
 [실험노트](https://docs.google.com/spreadsheets/d/1v_ZMKii5nt6VgrtCVA-bue42jWa5wpcJWnHMoFL9OUE)
-
+[설치 및 실행](#Install) <br>
 
 ---
+
+
 
 ### 🌏Team - ConnectNet <a name = 'Team'></a>
 
@@ -53,8 +55,27 @@
    * 실험 내용 결과 공유 및 기록 
 
 
+### 설치 및 실행 <a name = 'Install'></a>
 
+* 설치 
+```shell
+pip install -r requirements.txt
+```
 
+* 소스  다운로드 
+```shell
+git clone https://github.com/bcaitech1/p4-fr-connectnet.git
+```
+
+* 학습
+```shell
+python ./train.py --c config/SATRN.yaml
+```
+
+* 평가
+```shell
+python ./inference.py --checkpoint ./log/satrn/checkpoints/0050.pth
+```
 
 # Reference
 
