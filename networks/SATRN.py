@@ -147,7 +147,7 @@ class DeepCNN300(nn.Module):
         self.trans2_norm = nn.BatchNorm2d(num_features)
         self.trans2_relu = nn.ReLU(inplace=True)
         self.trans2_conv = nn.Conv2d(
-            num_features, num_features // 2, kernel_size=1, stride=1, bias=False  # 128
+            num_features, output_channel, kernel_size=1, stride=1, bias=False  # 128
         )
 
     def forward(self, input):
@@ -575,7 +575,7 @@ class SATRN(nn.Module):
         )
 
         self.criterion = (
-            nn.CrossEntropyLoss()
+            nn.CrossEntropyLoss(ignore_index = train_dataset.token_to_id[PAD])
         )  # without ignore_index=train_dataset.token_to_id[PAD]
 
         if checkpoint:

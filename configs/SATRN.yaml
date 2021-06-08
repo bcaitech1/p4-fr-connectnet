@@ -21,7 +21,7 @@ Attention:
   layer_num: 1
   cell_type: "LSTM"
 checkpoint: ""
-prefix: "./log/satrn"
+prefix: "/opt/ml/input/data/log/satrn"
 
 data:
   train:
