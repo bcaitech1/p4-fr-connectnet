@@ -273,6 +273,53 @@ class TransformerEncoderLayer(nn.Module):
         out = self.feedforward_norm(ff + out)
         return out
 
+class Adaptive2DPositionEncoder(nn.Module):
+    def __init__(self, in_channels, max_h=64, max_w=128, dropout=0.1):
+        super(Adaptive2DPositionEncoder, self).__init__()
+
+        h_position_encoder = self.generate_encoder(in_channels, max_h)
+        self.h_position_encoder = h_position_encoder.transpose(0, 1).view(1, in_channels, max_h, 1)
+
+        w_position_encoder = self.generate_encoder(in_channels, max_w)
+        self.w_position_encoder = w_position_encoder.transpose(0, 1).view(1, in_channels, 1, max_w)
+
+        self.h_scale = self.scale_factor_generate(in_channels)
+        self.w_scale = self.scale_factor_generate(in_channels)
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.dropout = nn.Dropout(p=dropout)
+
+    def generate_encoder(self, in_channels, max_len):
+        pos = torch.arange(max_len).float().unsqueeze(1)
+        i = torch.arange(in_channels).float().unsqueeze(0)
+        angle_rates = 1 / torch.pow(10000, (2 * (i // 2)) / in_channels)
+        position_encoder = pos * angle_rates
+        position_encoder[:, 0::2] = torch.sin(position_encoder[:, 0::2])
+        position_encoder[:, 1::2] = torch.cos(position_encoder[:, 1::2])
+        return position_encoder  # (Max_len, In_channel)
+
+    # 큰 차이점, 이게 존재
+    def scale_factor_generate(self, in_channels): # alpha인듯
+        scale_factor = nn.Sequential( 
+            nn.Conv2d(in_channels, in_channels, kernel_size=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels, in_channels, kernel_size=1),
+            nn.Sigmoid()
+        )
+        return scale_factor
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+
+        avg_pool = self.pool(x)
+
+        # 학습가능한 파라미터?
+        h_pos_encoding = self.h_scale(avg_pool) * self.h_position_encoder[:, :, :h, :].to(x.get_device())
+        w_pos_encoding = self.w_scale(avg_pool) * self.w_position_encoder[:, :, :, :w].to(x.get_device())
+
+        out = x + h_pos_encoding + w_pos_encoding
+
+        out = self.dropout(out)
+        return out
 
 class PositionalEncoding2D(nn.Module):
     def __init__(self, in_channels, max_h=64, max_w=128, dropout=0.1):
@@ -347,7 +394,7 @@ class TransformerEncoderFor2DFeatures(nn.Module):
             output_channel=hidden_dim,
             dropout_rate=dropout_rate,
         )
-        self.positional_encoding = PositionalEncoding2D(hidden_dim)
+        self.positional_encoding = Adaptive2DPositionEncoder(hidden_dim)
         self.attention_layers = nn.ModuleList(
             [
                 TransformerEncoderLayer(hidden_dim, filter_size, head_num, dropout_rate)
