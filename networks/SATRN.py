@@ -449,7 +449,7 @@ class TransformerDecoderLayer(nn.Module):
             att = self.self_attention_layer(tgt, tgt, tgt, tgt_mask)
             out = self.self_attention_norm(att + tgt)
 
-            att = self.attention_layer(tgt, src, src)
+            att = self.attention_layer(out, src, src) # tgt,src,src였었음
             out = self.attention_norm(att + out)
 
             ff = self.feedforward_layer(out)
@@ -459,7 +459,7 @@ class TransformerDecoderLayer(nn.Module):
             att = self.self_attention_layer(tgt, tgt_prev, tgt_prev, tgt_mask)
             out = self.self_attention_norm(att + tgt)
 
-            att = self.attention_layer(tgt, src, src)
+            att = self.attention_layer(out, src, src) # tgt,src,src였었음
             out = self.attention_norm(att + out)
 
             ff = self.feedforward_layer(out)
