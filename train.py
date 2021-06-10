@@ -269,6 +269,9 @@ def main(config_file):
         params_to_optimise,
         lr=options.optimizer.lr,
         weight_decay=options.optimizer.weight_decay,
+        eps =options.optimizer.eps,
+        betas =options.optimizer.betas,
+        amsgrad =options.optimizer.amsgrad
     )
     optimizer_state = checkpoint.get("optimizer")
     if optimizer_state:
@@ -459,7 +462,7 @@ if __name__ == "__main__":
         "-c",
         "--config_file",
         dest="config_file",
-        default="configs/SATRN.yaml",
+        default="configs/SATRN_start.yaml",
         type=str,
         help="Path of configuration file",
     )

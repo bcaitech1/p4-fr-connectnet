@@ -22,11 +22,13 @@ def get_network(
     return model
 
 
-def get_optimizer(optimizer, params, lr, weight_decay=None):
+def get_optimizer(optimizer, params, lr, weight_decay=None,betas=None,eps = None,amsgrad = None):
     if optimizer == "Adam":
         optimizer = optim.Adam(params, lr=lr)
     elif optimizer == "Adadelta":
-        optim.Adadelta(params, lr=lr, weight_decay=weight_decay)
+        optimizer = optim.Adadelta(params, lr=lr, weight_decay=weight_decay)
+    elif optimizer == "AdamW":
+        optimizer = optim.AdamW(params, lr=lr,betas=betas, eps=eps,weight_decay=weight_decay, amsgrad=amsgrad)
     else:
         raise NotImplementedError
     return optimizer
