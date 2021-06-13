@@ -98,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint",
         dest="checkpoint",
-        default="",
+        default="./log/0100.pth",
         type=str,
         help="Path of checkpoint file",
     )
@@ -112,16 +112,28 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch_size",
         dest="batch_size",
-        default=16,
+        default=8,
         type=int,
         help="batch size when doing inference",
     )
+
+    eval_dir = os.environ.get('SM_CHANNEL_EVAL', '/opt/ml/input/data/')
+    file_path = os.path.join(eval_dir, 'eval_dataset/input.txt')
     parser.add_argument(
         "--file_path",
         dest="file_path",
-        default="",
+        default=file_path,
         type=str,
         help="file path when doing inference",
+    )
+    
+    output_dir = os.environ.get('SM_OUTPUT_DATA_DIR', 'submit')
+    parser.add_argument(
+        "--output_dir",
+        dest="output_dir",
+        default=output_dir,
+        type=str,
+        help="output directory",
     )
     parser = parser.parse_args()
     main(parser)
