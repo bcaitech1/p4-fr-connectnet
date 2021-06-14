@@ -88,7 +88,8 @@ def main(parser):
         for path, predicted in zip(d["file_path"], sequence_str):
             results.append((path, predicted))
 
-    with open("submission.txt", "w") as w:
+    os.makedirs(parser.output_dir, exist_ok=True)
+    with open(os.path.join(parser.output_dir, "output.csv"), "w") as w:
         for path, predicted in results:
             w.write(path + "\t" + predicted + "\n")
 
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint",
         dest="checkpoint",
-        default="./log/0100.pth",
+        default="./log/satrn_adap_dim/0050.pth",
         type=str,
         help="Path of checkpoint file",
     )
@@ -126,7 +127,7 @@ if __name__ == "__main__":
         type=str,
         help="file path when doing inference",
     )
-    
+
     output_dir = os.environ.get('SM_OUTPUT_DATA_DIR', 'submit')
     parser.add_argument(
         "--output_dir",
@@ -135,5 +136,6 @@ if __name__ == "__main__":
         type=str,
         help="output directory",
     )
+
     parser = parser.parse_args()
     main(parser)
