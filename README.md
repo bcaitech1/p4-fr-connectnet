@@ -80,11 +80,15 @@ python ./inference.py --checkpoint ./log/satrn/checkpoints/0050.pth
 # Reference
 
 ### Paper
-
+- [Translating Math Formula Images to LaTeX Sequences Using Deep
+Neural Networks with Sequence-level Training](https://arxiv.org/pdf/1908.11415.pdf)
+- [Image to Latex](http://cs231n.stanford.edu/reports/2017/pdfs/815.pdf)
+- [Pattern Generation Strategies for Improving Recognition of Handwritten
+Mathematical Expressions](https://arxiv.org/pdf/1901.06763.pdf)
+- [On Recognizing Texts of Arbitrary Shapes with 2D Self-Attention](https://openaccess.thecvf.com/content_CVPRW_2020/papers/w34/Lee_On_Recognizing_Texts_of_Arbitrary_Shapes_With_2D_Self-Attention_CVPRW_2020_paper.pdf)
 
 
 ### GIt
-
 
 
 ### Site & Kaggle
