@@ -20,7 +20,7 @@
 
 [Team 소개](#Team)<br>
 [Gound Rule](#rule)<br>
-[실험노트](https://docs.google.com/spreadsheets/d/1v_ZMKii5nt6VgrtCVA-bue42jWa5wpcJWnHMoFL9OUE)
+[실험노트](https://docs.google.com/spreadsheets/d/1v_ZMKii5nt6VgrtCVA-bue42jWa5wpcJWnHMoFL9OUE)<br>
 [설치 및 실행](#Install) <br>
 
 
@@ -93,8 +93,9 @@ pip install -r requirements.txt
     ```
 
 * 평가
+  * [trained model 다운로드](https://drive.google.com/drive/folders/1oFh8gIGQ81mEiRwYPa_s8ML_rcVVK8RJ?usp=sharing)
 ```shell
-python ./inference.py --checkpoint ./log/satrn/checkpoints/0050.pth
+python ./inference.py --checkpoint aster.pth
 ```
 
 
