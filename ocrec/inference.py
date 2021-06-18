@@ -266,7 +266,7 @@ class LInference():
 
 def load_model():
 
-    checkpoint ="./att.pth"
+    checkpoint ="./aster.pth"
     file_path = os.path.join("./static/", 'input.txt')
 
     is_cuda = torch.cuda.is_available()
