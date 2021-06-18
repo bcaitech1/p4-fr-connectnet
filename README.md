@@ -8,6 +8,9 @@
 
 ---
 
+#### ✔️ OCR Task
+   * Rank : 7
+   * LB: 0.5639
 
 
 ### 📋 Table of content
