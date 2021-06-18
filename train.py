@@ -27,11 +27,24 @@ from scheduler import CircularLRBeta
 
 from metrics import word_error_rate,sentence_acc
 
+
+class AddGaussianNoise(object):
+    def __init__(self, mean=0., std=1.):
+        self.std = std
+        self.mean = mean
+        
+    def __call__(self, tensor):
+        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+    
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+
 def id_to_string(tokens, data_loader,do_eval=0):
     result = []
     if do_eval:
-        special_ids = [data_loader.dataset.token_to_id["<PAD>"], data_loader.dataset.token_to_id["<SOS>"],
-                       data_loader.dataset.token_to_id["<EOS>"]]
+        eos_id = data_loader.dataset.token_to_id["<EOS>"]
+        special_ids = set([data_loader.dataset.token_to_id["<PAD>"], data_loader.dataset.token_to_id["<SOS>"], eos_id])
 
     for example in tokens:
         string = ""
@@ -41,6 +54,8 @@ def id_to_string(tokens, data_loader,do_eval=0):
                 if token not in special_ids:
                     if token != -1:
                         string += data_loader.dataset.id_to_token[token] + " "
+                elif token == eos_id:
+                    break
         else:
             for token in example:
                 token = token.item()
@@ -116,9 +131,11 @@ def run_epoch(
                 )
                 grad_norms.append(grad_norm)
 
-                # cycle
-                lr_scheduler.step()
+#                 # cycle
+#                 lr_scheduler.step()
+#                 optimizer.step()
                 optimizer.step()
+                lr_scheduler.step()
 
             losses.append(loss.item())
             
@@ -221,9 +238,17 @@ def main(config_file):
         [
             # Resize so all images have the same size
             transforms.Resize((options.input_size.height, options.input_size.width)),
+            transforms.RandomChoice([
+                transforms.RandomRotation(5),
+                transforms.RandomAffine(degrees=5, shear=5)
+            ]),
+            transforms.ColorJitter(brightness=0.1, contrast=0.1),
             transforms.ToTensor(),
+#             AddGaussianNoise(0, 0.1)
         ]
     )
+
+
     train_data_loader, validation_data_loader, train_dataset, valid_dataset = dataset_loader(options, transformed)
     print(
         "[+] Data\n",
@@ -278,10 +303,15 @@ def main(config_file):
             optimizer, options.optimizer.lr, 10, 10, cycle, [0.95, 0.85]
         )
     else:
-        lr_scheduler = optim.lr_scheduler.StepLR(
+#         lr_scheduler = optim.lr_scheduler.StepLR(
+#             optimizer,
+#             step_size=options.optimizer.lr_epochs,
+#             gamma=options.optimizer.lr_factor,
+#         )
+        lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            step_size=options.optimizer.lr_epochs,
-            gamma=options.optimizer.lr_factor,
+            T_max=50,
+            eta_min=0.000001
         )
 
     # Log
@@ -456,7 +486,7 @@ if __name__ == "__main__":
         "-c",
         "--config_file",
         dest="config_file",
-        default="configs/Attention.yaml",
+        default="configs/SATRN.yaml",
         type=str,
         help="Path of configuration file",
     )
