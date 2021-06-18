@@ -1,0 +1,41 @@
+network: SRN
+input_size:
+  height: 32
+  width: 128
+
+model:
+  max_length : 254
+  hidden_dim : 512
+  char_num : 244
+  num_heads : 8
+  num_encoder_TUs : 2
+  num_decoder_TUs : 4
+
+checkpoint: ""
+prefix: "./log/srn"
+
+data:
+  train:
+    - "/opt/ml/input/data/train_dataset/gt.txt"
+  test:
+    - ""
+  token_paths:
+    - "/opt/ml/input/data/train_dataset/tokens.txt"  # 241 tokens
+  dataset_proportions:  # proportion of data to take from train (not test)
+    - 1.0
+  random_split: True # if True, random split from train files
+  test_proportions: 0.2 # only if random_split is True
+  crop: False
+  rgb: 1    # 3 for color, 1 for greyscale
+
+batch_size: 25
+num_workers: 2
+num_epochs: 50
+print_epochs: 1
+max_grad_norm: 2.0
+seed: 1234
+optimizer:
+  optimizer: 'Adam' # Adam, Adadelta
+  lr: 5e-4 # 1e-4
+  weight_decay: 1e-4
+  is_cycle: True
