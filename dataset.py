@@ -135,6 +135,11 @@ class LoadDataset(Dataset):
     def __getitem__(self, i):
         item = self.data[i]
         image = Image.open(item["path"])
+        width, height = image.size
+        if (width/ height) < 0.8:
+            angle = 90
+            image = image.rotate(angle, expand=True)
+        
         if self.rgb == 3:
             image = image.convert("RGB")
         elif self.rgb == 1:
@@ -152,6 +157,7 @@ class LoadDataset(Dataset):
             image = self.transform(image)
 
         return {"path": item["path"], "truth": item["truth"], "image": image}
+
 
 class LoadEvalDataset(Dataset):
     """Load Dataset"""
@@ -202,6 +208,11 @@ class LoadEvalDataset(Dataset):
     def __getitem__(self, i):
         item = self.data[i]
         image = Image.open(item["path"])
+        width, height = image.size
+        if (width/ height) < 0.8:
+            angle = 90
+            image = image.rotate(angle, expand=True)
+        
         if self.rgb == 3:
             image = image.convert("RGB")
         elif self.rgb == 1:
