@@ -26,6 +26,11 @@ from dataset import dataset_loader, START, PAD,load_vocab
 from scheduler import CircularLRBeta
 
 from metrics import word_error_rate,sentence_acc
+import wandb
+
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
 
 def id_to_string(tokens, data_loader,do_eval=0):
     result = []
@@ -41,6 +46,8 @@ def id_to_string(tokens, data_loader,do_eval=0):
                 if token not in special_ids:
                     if token != -1:
                         string += data_loader.dataset.id_to_token[token] + " "
+                elif token == data_loader.dataset.token_to_id["<EOS>"]:
+                    break
         else:
             for token in example:
                 token = token.item()
@@ -82,9 +89,10 @@ def run_epoch(
         desc="{} ({})".format(epoch_text, "Train" if train else "Validation"),
         total=len(data_loader.dataset),
         dynamic_ncols=True,
-        leave=False,
+        leave=True,
     ) as pbar:
         for d in data_loader:
+
             input = d["image"].to(device)
 
             # The last batch may not be a full batch
@@ -95,7 +103,7 @@ def run_epoch(
             expected[expected == -1] = data_loader.dataset.token_to_id[PAD]
 
             output = model(input, expected, train, teacher_forcing_ratio)
-            
+            output = output['dec_result']
             decoded_values = output.transpose(1, 2)
             _, sequence = torch.topk(decoded_values, 1, dim=1)
             sequence = sequence.squeeze(1)
@@ -117,8 +125,9 @@ def run_epoch(
                 grad_norms.append(grad_norm)
 
                 # cycle
-                lr_scheduler.step()
                 optimizer.step()
+                lr_scheduler.step()
+
 
             losses.append(loss.item())
             
@@ -150,11 +159,16 @@ def run_epoch(
         "sent_acc": sent_acc,
         "num_sent_acc":num_sent_acc
     }
+
     if train:
         try:
-            result["grad_norm"] = np.mean([tensor.cpu() for tensor in grad_norms])
+            result["grad_norm"] = torch.mean(torch.Tensor([tensor for tensor in grad_norms]))
+            print("-----------1", result["grad_norm"].shape)
+            print(result["grad_norm"])
         except:
-            result["grad_norm"] = np.mean(grad_norms)
+            result["grad_norm"] = torch.mean(torch.Tensor(grad_norms))
+            print("-----------2", result["grad_norm"].shape)
+            print(result["grad_norm"])
 
     return result
 
@@ -165,8 +179,23 @@ def main(config_file):
     """
     options = Flags(config_file).get()
 
+    wandb.config.update({
+                        "seed" : options.seed,
+                        "network" : options.network,
+                        "epochs" : options.num_epochs,
+                        "batch_size" : options.batch_size,
+                        "num_workers" : options.num_workers,
+                        "dropout" : options.dropout_rate,
+                        "teacher_forcing_ratio" : options.teacher_forcing_ratio,
+                        "optimizer" : options.optimizer,
+                        "input_size" : options.input_size,
+                        "SATRN_param" : options.SATRN,
+                        "Attention_param" : options.Attention
+                        })
+
     #set random seed
     torch.manual_seed(options.seed)
+    torch.cuda.manual_seed(options.seed)
     np.random.seed(options.seed)
     random.seed(options.seed)
     torch.backends.cudnn.deterministic = True
@@ -221,10 +250,16 @@ def main(config_file):
         [
             # Resize so all images have the same size
             transforms.Resize((options.input_size.height, options.input_size.width)),
+            transforms.RandomChoice([
+                transforms.RandomRotation(5),
+                transforms.RandomAffine(degrees=5, shear=5)
+            ]),
+            transforms.ColorJitter(0.1, 0.1),
             transforms.ToTensor(),
         ]
     )
     train_data_loader, validation_data_loader, train_dataset, valid_dataset = dataset_loader(options, transformed)
+
     print(
         "[+] Data\n",
         "The number of train samples : {}\n".format(len(train_dataset)),
@@ -240,6 +275,11 @@ def main(config_file):
         device,
         train_dataset,
     )
+
+    print(model)
+
+    wandb.watch(model)
+
     model.train()
     criterion = model.criterion.to(device)
     enc_params_to_optimise = [
@@ -267,6 +307,7 @@ def main(config_file):
         lr=options.optimizer.lr,
         weight_decay=options.optimizer.weight_decay,
     )
+
     optimizer_state = checkpoint.get("optimizer")
     if optimizer_state:
         optimizer.load_state_dict(optimizer_state)
@@ -274,15 +315,20 @@ def main(config_file):
         param_group["initial_lr"] = options.optimizer.lr
     if options.optimizer.is_cycle:
         cycle = len(train_data_loader) * options.num_epochs
+        #cycle=250000
+        #cycle = len(train_data_loader) // 3
         lr_scheduler = CircularLRBeta(
             optimizer, options.optimizer.lr, 10, 10, cycle, [0.95, 0.85]
         )
     else:
-        lr_scheduler = optim.lr_scheduler.StepLR(
+        lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            step_size=options.optimizer.lr_epochs,
-            gamma=options.optimizer.lr_factor,
+             T_max=10*len(train_data_loader), 
+             eta_min=1e-6
         )
+
+    for i in range(len(train_data_loader) * checkpoint["epoch"] ):
+        lr_scheduler.step()
 
     # Log
     if not os.path.exists(options.prefix):
@@ -449,6 +495,18 @@ def main(config_file):
                 model,
             )
 
+            wandb.log({
+                "train_symbol_accuracy" : train_epoch_symbol_accuracy,
+                "train_sentence_accuracy" : train_epoch_sentence_accuracy,
+                "train_wer" : train_epoch_wer,
+                "train_loss" : train_result["loss"],
+                "validation_symbol_accuracy" : validation_epoch_symbol_accuracy,
+                "validation_sentence_accuracy" : validation_epoch_sentence_accuracy,
+                "validation_wer" : validation_epoch_wer,
+                "validation_loss" : validation_result["loss"],
+                "lr" : get_lr(optimizer)
+            })
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -460,5 +518,14 @@ if __name__ == "__main__":
         type=str,
         help="Path of configuration file",
     )
+
+    parser.add_argument("--name", dest="name", default="exp", type=str)
+
     parser = parser.parse_args()
+
+    wandb.init(project="img_to_latex")
+    wandb.run.name = parser.name
+    wandb.run.save()
     main(parser.config_file)
+
+#tensorboard --logdir=./log/
