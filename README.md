@@ -22,7 +22,7 @@
 [Gound Rule](#rule)<br>
 [실험노트](https://docs.google.com/spreadsheets/d/1v_ZMKii5nt6VgrtCVA-bue42jWa5wpcJWnHMoFL9OUE)<br>
 [설치 및 실행](#Install) <br>
-
+[ocRec 수식 인식 프로그램] (https://github.com/bcaitech1/p4-fr-connectnet/tree/main/ocrec)
 
 #### [수식 인식기](#ocr)
 
