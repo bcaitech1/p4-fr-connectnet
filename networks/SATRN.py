@@ -6,8 +6,71 @@ import math
 import random
 
 from dataset import START, PAD
+from .dcn import DeformableConv2d
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class CNN(nn.Module):
+    def __init__(self, nc, output_channel, dropout_rate, leakyRelu=False):
+        super(CNN, self).__init__()
+
+        ks = [3, 3, 3, 3, 3, 3, 2]
+        ps = [1, 1, 1, 1, 1, 1, 0]
+        ss = [1, 1, 1, 1, 1, 1, 1]
+        nm = [64, 128, 256, 256, 512, 512, 512]
+
+
+        def convRelu(i, batchNormalization=False):
+            cnn = nn.Sequential()
+            nIn = nc if i == 0 else nm[i - 1]
+            nOut = nm[i]
+
+            if i< 4:
+                cnn.add_module('conv{0}'.format(i),
+                           nn.Conv2d(nIn, nOut, ks[i], ss[i], ps[i]))
+            else:
+                cnn.add_module('dcv{0}'.format(i),
+                            DeformableConv2d(nIn, nOut, ks[i], ss[i], ps[i]))
+
+            if batchNormalization:
+                cnn.add_module('batchnorm{0}'.format(i), nn.BatchNorm2d(nOut))
+
+            if leakyRelu:
+                cnn.add_module('relu{0}'.format(i),
+                               nn.LeakyReLU(0.2, inplace=True))
+            else:
+                cnn.add_module('relu{0}'.format(i), nn.ReLU(True))
+
+            cnn.add_module('dropout{0}'.format(i), nn.Dropout(dropout_rate))
+
+
+            return cnn
+
+        self.conv0 = convRelu(0)
+        self.pooling0 = nn.MaxPool2d(2, 2)
+        self.conv1 = convRelu(1)
+        self.conv2 = convRelu(2, True)
+        self.conv3 = convRelu(3)
+        self.pooling3 = nn.MaxPool2d(2, 2)
+        self.conv4 = convRelu(4, True)
+        self.conv5 = convRelu(5)
+        self.pooling5 = nn.MaxPool2d(2, 2)
+        self.conv6 = convRelu(6, True)
+        self.conv7 = nn.Conv2d(512, output_channel, kernel_size=1, stride=1, padding=0, bias=False)
+    
+    def forward(self, input):
+        out = self.conv0(input)     # [batch size, 64, 128, 128]
+        out = self.pooling0(out)    # [batch size, 64, 64, 64]
+        out = self.conv1(out)       # [batch size, 128, 64, 64]
+        out = self.conv2(out)       # [batch size, 256, 32, 32]
+        out = self.conv3(out)       # [batch size, 256, 32, 32]
+        out = self.pooling3(out)    # [batch size, 256, 16, 33]
+        out = self.conv4(out)       # [batch size, 512, 16, 33]
+        out = self.conv5(out)       # [batch size, 512, 16, 33]
+        out = self.pooling5(out)    # [batch size, 512, 8, 34]
+        out = self.conv6(out)       # [batch size, 512, 7, 33]
+        out = self.conv7(out)
+        return out
 
 
 class BottleneckBlock(nn.Module):
@@ -34,6 +97,41 @@ class BottleneckBlock(nn.Module):
         )
         self.norm2 = nn.BatchNorm2d(inter_size)
         self.conv2 = nn.Conv2d(
+            inter_size, growth_rate, kernel_size=3, stride=1, padding=1, bias=False
+        )
+        self.dropout = nn.Dropout(dropout_rate)
+
+    def forward(self, x):
+        out = self.conv1(self.relu(self.norm1(x)))
+        out = self.conv2(self.relu(self.norm2(out)))
+        out = self.dropout(out)
+        return torch.cat([x, out], 1)
+
+
+class BottleneckBlock_Deconv(nn.Module):
+    """
+    Dense Bottleneck Block
+
+    It contains two convolutional layers, a 1x1 and a 3x3.
+    """
+
+    def __init__(self, input_size, growth_rate, dropout_rate=0.2, num_bn=3):
+        """
+        Args:
+            input_size (int): Number of channels of the input
+            growth_rate (int): Number of new features being added. That is the ouput
+                size of the last convolutional layer.
+            dropout_rate (float, optional): Probability of dropout [Default: 0.2]
+        """
+        super(BottleneckBlock_Deconv, self).__init__()
+        inter_size = num_bn * growth_rate
+        self.norm1 = nn.BatchNorm2d(input_size)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv1 = nn.Conv2d(
+            input_size, inter_size, kernel_size=1, stride=1, padding=0, bias=False
+        )
+        self.norm2 = nn.BatchNorm2d(inter_size)
+        self.conv2 = DeformableConv2d(
             inter_size, growth_rate, kernel_size=3, stride=1, padding=1, bias=False
         )
         self.dropout = nn.Dropout(dropout_rate)
@@ -79,7 +177,7 @@ class DenseBlock(nn.Module):
     A dense block stacks several bottleneck blocks.
     """
 
-    def __init__(self, input_size, growth_rate, depth, dropout_rate=0.2):
+    def __init__(self, input_size, growth_rate, depth, dropout_rate=0.2, deconv = False):
         """
         Args:
             input_size (int): Number of channels of the input
@@ -88,12 +186,24 @@ class DenseBlock(nn.Module):
             dropout_rate (float, optional): Probability of dropout [Default: 0.2]
         """
         super(DenseBlock, self).__init__()
-        layers = [
-            BottleneckBlock(
-                input_size + i * growth_rate, growth_rate, dropout_rate=dropout_rate
-            )
-            for i in range(depth)
-        ]
+
+        if deconv:
+            layers = [
+                BottleneckBlock_Deconv(
+                    input_size + i * growth_rate, growth_rate, dropout_rate=dropout_rate
+                )
+                if i >= depth-3 else BottleneckBlock(
+                    input_size + i * growth_rate, growth_rate, dropout_rate=dropout_rate
+                )
+                for i in range(depth)
+            ]
+        else :
+            layers = [
+                BottleneckBlock(
+                    input_size + i * growth_rate, growth_rate, dropout_rate=dropout_rate
+                )
+                for i in range(depth)
+            ]
         self.block = nn.Sequential(*layers)
 
     def forward(self, x):
@@ -133,6 +243,7 @@ class DeepCNN300(nn.Module):
             growth_rate=growth_rate,  # 48 + growth_rate(24)*depth(16) -> 432
             depth=depth,  # 16?
             dropout_rate=0.2,
+            deconv=False,
         )
         num_features = num_features + depth * growth_rate
         self.trans1 = TransitionBlock(num_features, num_features // 2)  # 16 x 16
@@ -142,23 +253,24 @@ class DeepCNN300(nn.Module):
             growth_rate=growth_rate,  # 16
             depth=depth,  # 8
             dropout_rate=0.2,
+            deconv=True,
         )
         num_features = num_features + depth * growth_rate
         self.trans2_norm = nn.BatchNorm2d(num_features)
         self.trans2_relu = nn.ReLU(inplace=True)
         self.trans2_conv = nn.Conv2d(
-            num_features, num_features // 2, kernel_size=1, stride=1, bias=False  # 128
+            num_features, output_channel, kernel_size=1, stride=1, bias=False  # 128
         )
 
     def forward(self, input):
-        out = self.conv0(input)  # (H, V, )
+        out = self.conv0(input)  # (B, num_in_features, H/2, W/2 )
         out = self.relu(self.norm0(out))
-        out = self.max_pool(out)
+        out = self.max_pool(out) # (B, num_in_features, H/8, W/8 )
         out = self.block1(out)
         out = self.trans1(out)
         out = self.block2(out)
         out_before_trans2 = self.trans2_relu(self.trans2_norm(out))
-        out_A = self.trans2_conv(out_before_trans2)
+        out_A = self.trans2_conv(out_before_trans2) #(B, hidden_dim, H/8, W/8 )
         return out_A  # 128 x (16x16)
 
 
@@ -169,14 +281,14 @@ class ScaledDotProductAttention(nn.Module):
         self.temperature = temperature
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v, mask=None):  #q, k, v : (B, head_num, HxW, head_dim)
 
-        attn = torch.matmul(q, k.transpose(2, 3)) / self.temperature
+        attn = torch.matmul(q, k.transpose(2, 3)) / self.temperature #(B, head_num, HxW, HxW)
         if mask is not None:
             attn = attn.masked_fill(mask=mask, value=float("-inf"))
-        attn = torch.softmax(attn, dim=-1)
+        attn = torch.softmax(attn, dim=-1) # (B, head_num, HxW, HxW)
         attn = self.dropout(attn)
-        out = torch.matmul(attn, v)
+        out = torch.matmul(attn, v) # (B, head_num, HxW, head_dim)
         return out, attn
 
 
@@ -198,34 +310,35 @@ class MultiHeadAttention(nn.Module):
         self.out_linear = nn.Linear(self.head_num * self.head_dim, q_channels)
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v, mask=None):  # q,k,v : (B, HxW, hidden_dim)
         b, q_len, k_len, v_len = q.size(0), q.size(1), k.size(1), v.size(1)
+      # B   HxW    HxW    HxW
         q = (
-            self.q_linear(q)
+            self.q_linear(q)   
             .view(b, q_len, self.head_num, self.head_dim)
-            .transpose(1, 2)
+            .transpose(1, 2) # self_attention (B, head_num, HxW, head_dim)
         )
         k = (
             self.k_linear(k)
             .view(b, k_len, self.head_num, self.head_dim)
-            .transpose(1, 2)
+            .transpose(1, 2) # self_attention (B, head_num, HxW, head_dim)
         )
         v = (
             self.v_linear(v)
             .view(b, v_len, self.head_num, self.head_dim)
-            .transpose(1, 2)
+            .transpose(1, 2) # self_attention (B, head_num, HxW, head_dim)
         )
 
         if mask is not None:
             mask = mask.unsqueeze(1)
 
-        out, attn = self.attention(q, k, v, mask=mask)
+        out, attn = self.attention(q, k, v, mask=mask)  #out : # (B, head_num, HxW, head_dim), attn : # (B, head_num, HxW, HxW)
         out = (
-            out.transpose(1, 2)
+            out.transpose(1, 2)  # (B, HxW, head_num,  head_dim)
             .contiguous()
-            .view(b, q_len, self.head_num * self.head_dim)
+            .view(b, q_len, self.head_num * self.head_dim) # (B, HxW, head_num * head_dim)
         )
-        out = self.out_linear(out)
+        out = self.out_linear(out) # (B, HxW, hidden_dim)
         out = self.dropout(out)
 
         return out
@@ -244,9 +357,32 @@ class Feedforward(nn.Module):
             nn.Dropout(p=dropout),
         )
 
-    def forward(self, input):
-        return self.layers(input)
+    def forward(self, input): # (B, HxW, C)
+        return self.layers(input) # (B, HxW, C)
 
+
+class Locality_aware_Feedforward(nn.Module):
+    def __init__(self, filter_size=2048, hidden_dim=512, dropout=0.1):
+        super(Locality_aware_Feedforward, self).__init__()
+
+        self.layers = nn.Sequential(
+            nn.Conv2d(hidden_dim, filter_size, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(filter_size),
+            nn.ReLU(True),
+            nn.Conv2d(filter_size, filter_size, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(filter_size),
+            nn.ReLU(True),
+            nn.Conv2d(filter_size, hidden_dim, kernel_size=1, stride=1, padding=0),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU(True),
+        )
+
+    def forward(self, input, size): # (B, HxW, C)
+        b,c,h,w = size
+        input = input.transpose(1,2).view(b,c,h,w)
+        input = self.layers(input) # (B, hidden, h,w)
+        input = input.view(b,c,h*w).transpose(1,2)
+        return input
 
 class TransformerEncoderLayer(nn.Module):
     def __init__(self, input_size, filter_size, head_num, dropout_rate=0.2):
@@ -259,17 +395,21 @@ class TransformerEncoderLayer(nn.Module):
             dropout=dropout_rate,
         )
         self.attention_norm = nn.LayerNorm(normalized_shape=input_size)
-        self.feedforward_layer = Feedforward(
+        # self.feedforward_layer = Feedforward(
+        #     filter_size=filter_size, hidden_dim=input_size
+        # )
+        self.feedforward_layer = Locality_aware_Feedforward(
             filter_size=filter_size, hidden_dim=input_size
         )
         self.feedforward_norm = nn.LayerNorm(normalized_shape=input_size)
 
-    def forward(self, input):
+    def forward(self, input, size): # input : (B, HxW, hidden_dim)
 
-        att = self.attention_layer(input, input, input)
+        att = self.attention_layer(input, input, input) # (B, HxW, hidden_dim)
         out = self.attention_norm(att + input)
 
-        ff = self.feedforward_layer(out)
+        #ff = self.feedforward_layer(out)
+        ff = self.feedforward_layer(out, size)
         out = self.feedforward_norm(ff + out)
         return out
 
@@ -320,7 +460,54 @@ class PositionalEncoding2D(nn.Module):
 
         return out
 
+class Adaptive2DPositionEncoder(nn.Module):
+    def __init__(self, in_channels, max_h=64, max_w=128, dropout=0.1):
+        super(Adaptive2DPositionEncoder, self).__init__()
 
+        h_position_encoder = self.generate_encoder(in_channels, max_h)
+        self.h_position_encoder = h_position_encoder.transpose(0, 1).view(1, in_channels, max_h, 1)
+
+        w_position_encoder = self.generate_encoder(in_channels, max_w)
+        self.w_position_encoder = w_position_encoder.transpose(0, 1).view(1, in_channels, 1, max_w)
+
+        self.h_scale = self.scale_factor_generate(in_channels)
+        self.w_scale = self.scale_factor_generate(in_channels)
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.dropout = nn.Dropout(p=dropout)
+
+    def generate_encoder(self, in_channels, max_len):
+        pos = torch.arange(max_len).float().unsqueeze(1)
+        i = torch.arange(in_channels).float().unsqueeze(0)
+        angle_rates = 1 / torch.pow(10000, (2 * (i // 2)) / in_channels)
+        position_encoder = pos * angle_rates
+        position_encoder[:, 0::2] = torch.sin(position_encoder[:, 0::2])
+        position_encoder[:, 1::2] = torch.cos(position_encoder[:, 1::2])
+        return position_encoder  # (Max_len, In_channel)
+
+    # 큰 차이점, 이게 존재
+    def scale_factor_generate(self, in_channels): # alpha인듯
+        scale_factor = nn.Sequential( 
+            nn.Conv2d(in_channels, in_channels, kernel_size=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels, in_channels, kernel_size=1),
+            nn.Sigmoid()
+        )
+        return scale_factor
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+
+        avg_pool = self.pool(x)
+
+        # 학습가능한 파라미터?
+        h_pos_encoding = self.h_scale(avg_pool) * self.h_position_encoder[:, :, :h, :].to(x.get_device())
+        w_pos_encoding = self.w_scale(avg_pool) * self.w_position_encoder[:, :, :, :w].to(x.get_device())
+
+        out = x + h_pos_encoding + w_pos_encoding
+
+        out = self.dropout(out)
+        return out
+        
 class TransformerEncoderFor2DFeatures(nn.Module):
     """
     Transformer Encoder for Image
@@ -347,7 +534,14 @@ class TransformerEncoderFor2DFeatures(nn.Module):
             output_channel=hidden_dim,
             dropout_rate=dropout_rate,
         )
-        self.positional_encoding = PositionalEncoding2D(hidden_dim)
+
+        # self.shallow_cnn = CNN(
+        #     input_size,
+        #     output_channel=hidden_dim,
+        #     dropout_rate=dropout_rate,
+        # )
+        #self.positional_encoding = PositionalEncoding2D(hidden_dim)
+        self.positional_encoding = Adaptive2DPositionEncoder(hidden_dim)
         self.attention_layers = nn.ModuleList(
             [
                 TransformerEncoderLayer(hidden_dim, filter_size, head_num, dropout_rate)
@@ -357,18 +551,21 @@ class TransformerEncoderFor2DFeatures(nn.Module):
         if checkpoint is not None:
             self.load_state_dict(checkpoint)
 
-    def forward(self, input):
+    def forward(self, input): # (b, c, h, w)
 
-        out = self.shallow_cnn(input)  # [b, c, h, w]
-        out = self.positional_encoding(out)  # [b, c, h, w]
+        out = self.shallow_cnn(input)  # [b, hidden_dim, h, w]
+        out = self.positional_encoding(out)  # [b, hidden_dim, h, w]
 
         # flatten
         b, c, h, w = out.size()
-        out = out.view(b, c, h * w).transpose(1, 2)  # [b, h x w, c]
+        out = out.view(b, c, h * w).transpose(1, 2)  # [b, h x w, hidden_dim]
 
         for layer in self.attention_layers:
-            out = layer(out)
+            out = layer(out, (b,c,h,w))
         return out
+
+
+
 
 
 class TransformerDecoderLayer(nn.Module):
@@ -402,7 +599,7 @@ class TransformerDecoderLayer(nn.Module):
             att = self.self_attention_layer(tgt, tgt, tgt, tgt_mask)
             out = self.self_attention_norm(att + tgt)
 
-            att = self.attention_layer(tgt, src, src)
+            att = self.attention_layer(out, src, src)
             out = self.attention_norm(att + out)
 
             ff = self.feedforward_layer(out)
@@ -412,7 +609,7 @@ class TransformerDecoderLayer(nn.Module):
             att = self.self_attention_layer(tgt, tgt_prev, tgt_prev, tgt_mask)
             out = self.self_attention_norm(att + tgt)
 
-            att = self.attention_layer(tgt, src, src)
+            att = self.attention_layer(out, src, src)
             out = self.attention_norm(att + out)
 
             ff = self.feedforward_layer(out)
@@ -504,14 +701,14 @@ class TransformerDecoder(nn.Module):
         return order_mask
 
     def text_embedding(self, texts):
-        tgt = self.embedding(texts)
+        tgt = self.embedding(texts) # (B, 1,)
         tgt *= math.sqrt(tgt.size(2))
 
         return tgt
 
     def forward(
         self, src, text, is_train=True, batch_max_length=50, teacher_forcing_ratio=1.0
-    ):
+    ):     #(b,hxw,c) (B,L)
 
         if is_train and random.random() < teacher_forcing_ratio:
             tgt = self.text_embedding(text)
@@ -527,8 +724,8 @@ class TransformerDecoder(nn.Module):
             features = [None] * self.layer_num
 
             for t in range(num_steps):
-                target = target.unsqueeze(1)
-                tgt = self.text_embedding(target)
+                target = target.unsqueeze(1) #(B, 1, L)
+                tgt = self.text_embedding(target) #(B,1,hidden)
                 tgt = self.pos_encoder(tgt, point=t)
                 tgt_mask = self.order_mask(t + 1)
                 tgt_mask = tgt_mask[:, -1].unsqueeze(1)  # [1, (l+1)]
@@ -575,17 +772,17 @@ class SATRN(nn.Module):
         )
 
         self.criterion = (
-            nn.CrossEntropyLoss()
+            nn.CrossEntropyLoss(ignore_index=train_dataset.token_to_id[PAD])
         )  # without ignore_index=train_dataset.token_to_id[PAD]
 
         if checkpoint:
             self.load_state_dict(checkpoint)
 
-    def forward(self, input, expected, is_train, teacher_forcing_ratio):
-        enc_result = self.encoder(input)
+    def forward(self, input, expected, is_train, teacher_forcing_ratio):  #input : (B, C, H, W),   expected : (B, L)
+        enc_result = self.encoder(input) # (B, HxW, C)
         dec_result = self.decoder(
             enc_result,
-            expected[:, :-1],
+            expected[:, :-1],  #end token 제외
             is_train,
             expected.size(1),
             teacher_forcing_ratio,
