@@ -11,7 +11,7 @@ import csv
 from torch.utils.data import DataLoader
 import argparse
 import random
-from tqdm import tqdm
+#from tqdm import tqdm
 from PIL import Image, ImageOps
 
 from networks.Attention import Attention
@@ -152,7 +152,7 @@ def main(parser):
 
 class LInference():
     def __init__(self):
-        checkpoint ="./att.pth"
+        checkpoint ="./aster.pth"
         file_path = os.path.join("./static/", 'input.txt')
 
         is_cuda = torch.cuda.is_available()

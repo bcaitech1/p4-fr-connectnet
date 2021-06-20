@@ -2,7 +2,7 @@
 Original code from clovaai/SATRN
 """
 import os
-import yaml
+#import yaml
 import collections
 
 

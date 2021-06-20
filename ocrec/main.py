@@ -36,7 +36,7 @@ class WindowClass(QMainWindow, form_class) :
         self.x2 = 0
         self.y2 = 0
        
-        self.resize(780, 500)
+        self.resize(780, 520)
         self.mode = 0
         self.draw =0
         #self.label_capture.setPixmap(QPixmap("screen.png"))
@@ -45,6 +45,8 @@ class WindowClass(QMainWindow, form_class) :
         self.pushButton.clicked.connect(self.openWindown)
 
         self.latext.setText("")
+        self.check.setText("")
+        
         self.show()
     
   
@@ -54,6 +56,9 @@ class WindowClass(QMainWindow, form_class) :
 
     def hideMainWidgets(self):
         print("hideMainWidgets")
+        self.latext.setText("")
+        self.label.clear()
+        self.check.clear()
         self.centralwidget.hide()
 
     def openWindown(self):
@@ -86,7 +91,7 @@ class WindowClass(QMainWindow, form_class) :
 
         imageq = ImageQt(image)
         pixmap = QtGui.QPixmap.fromImage(imageq)
-        pixmap = pixmap.scaled(QSize(800, 400), QtCore.Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pixmap = pixmap.scaled(QSize(660, 400), QtCore.Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         self.label_capture.setPixmap(pixmap)
         self.setCursor(QCursor(Qt.ArrowCursor))
@@ -99,27 +104,26 @@ class WindowClass(QMainWindow, form_class) :
         print(data)
         
 
-        #self.label.setScaledContents(True)
-
-        #desc ="x= \\frac {-b^{\prime} \pm \sqrt{b -ac}}{a}"
+  
 
         self.latext.setText(data)
-        # urlString = "http://www.sciweavers.org/tex2img.php?eq=%5Csqrt%5B3%5D%7Bx%5E3%2By%5E3%20%5Cover%202%7D&bc=White&fc=Black&im=jpg&fs=12&ff=arev&edit=0"
-        # url = urlparse(urlString)
-
-        # qs = dict(parse_qsl(url.query))
-        # qs['eq'] = data
-        # parts = url._replace(query=urlencode(qs))
-        # url = urlunparse(parts)
         
-        # img = urllib.request.urlopen(url).read()
+        urlString = "http://www.sciweavers.org/tex2img.php?eq=%5Csqrt%5B3%5D%7Bx%5E3%2By%5E3%20%5Cover%202%7D&bc=White&fc=Black&im=jpg&fs=12&ff=arev&edit=0"
+        url = urlparse(urlString)
 
-        # pixmap = QPixmap()
-        # pixmap.loadFromData(img)
+        qs = dict(parse_qsl(url.query))
+        qs['eq'] = data
+        parts = url._replace(query=urlencode(qs))
+        url = urlunparse(parts)
+        
+        img = urllib.request.urlopen(url).read()
 
-        # pixmap.scaled(QSize(400, 300), QtCore.Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pixmap = QPixmap()
+        pixmap.loadFromData(img)
 
-        # self.label_image.setPixmap(pixmap)
+        pixmap= pixmap.scaled(QSize(660, 100), QtCore.Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        self.check.setPixmap(pixmap)
         print("end")
 
 
@@ -131,8 +135,8 @@ class WindowClass(QMainWindow, form_class) :
 
     def paintEvent(self, event):
         
-        width = self.x2-self.x1 + 6
-        height = self.y2 - self.y1 +6
+        width = self.x2-self.x1 +4
+        height = self.y2 - self.y1  +3
 
         if width < 1  or height  < 1:
             return    
@@ -140,8 +144,8 @@ class WindowClass(QMainWindow, form_class) :
         if self.draw == 1:
             qp = QPainter()
             qp.begin(self)
-            qp.setPen(QPen(Qt.red, 4, Qt.SolidLine))           
-            qp.drawRect(self.x1-5, self.y1-5, width, height)        
+            qp.setPen(QPen(Qt.red, 3, Qt.SolidLine))           
+            qp.drawRect(self.x1-3, self.y1-3, width, height)        
             qp.end()
         else:
             qp = QPainter()
