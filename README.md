@@ -1,6 +1,6 @@
 ### 부스트캠프 AI Tech - Team Project 수식 인식기
 
-![logo](https://user-images.githubusercontent.com/24247768/122545863-4c966400-d069-11eb-9da3-bbb8427b057b.png)
+<img src="https://user-images.githubusercontent.com/24247768/122545863-4c966400-d069-11eb-9da3-bbb8427b057b.png" width="30%">
 
 |Task|Date|Team|
 |---|---|---|
