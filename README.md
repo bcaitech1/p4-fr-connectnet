@@ -22,9 +22,8 @@
 [Gound Rule](#rule)<br>
 [실험노트](https://docs.google.com/spreadsheets/d/1v_ZMKii5nt6VgrtCVA-bue42jWa5wpcJWnHMoFL9OUE)<br>
 [설치 및 실행](#Install) <br>
-[ocRec 수식 인식 윈도우 프로그램](https://github.com/bcaitech1/p4-fr-connectnet/tree/main/ocrec)
-
-#### [수식 인식기](#ocr)
+[ocRec 수식 인식 윈도우 프로그램](https://github.com/bcaitech1/p4-fr-connectnet/tree/main/ocrec)<br>
+[발표 PPT](https://github.com/philgineer/Math_OCR/blob/main/test/PPT_ConnectNet.pdf)
 
 1.1 [대회 전략](#strategy)<br>
 1.2 [Model](#model)<br>
